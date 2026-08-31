@@ -4,8 +4,9 @@ import Link from "next/link";
 import { useMemo, useState } from "react";
 
 import { Avatar } from "@/components/avatar";
-import { ClickTarget, PlusOneBadge } from "@/components/click-target";
+import { ClickTarget } from "@/components/click-target";
 import type { LeaderboardEntry } from "@/lib/leaderboard";
+import { instagramProfileUrl } from "@/lib/username";
 
 type Period = "all" | "today";
 
@@ -33,12 +34,10 @@ function RankBadge({ rank }: { rank: number }) {
 
 function Row({ entry }: { entry: LeaderboardEntry }) {
   const [count, setCount] = useState(entry.clicks);
-  const [pulsing, setPulsing] = useState(false);
   const [flash, setFlash] = useState(false);
 
   const handleOptimistic = () => {
     setCount((c) => c + 1);
-    setPulsing(true);
     setFlash(true);
     // Drop the flash class so it can re-trigger on the next click.
     setTimeout(() => setFlash(false), 950);
@@ -47,15 +46,12 @@ function Row({ entry }: { entry: LeaderboardEntry }) {
   const isTop3 = entry.rank <= 3;
 
   return (
-    <ClickTarget
-      username={entry.instagram_username}
-      onClicks={handleOptimistic}
-      className={`group relative flex w-full items-center gap-3 rounded-2xl border px-3 py-3 text-left transition-all active:scale-[0.985] sm:gap-4 sm:px-4 ${
+    <div
+      className={`relative flex w-full items-center gap-3 rounded-2xl border px-3 py-3 text-left transition-all active:scale-[0.985] sm:gap-4 sm:px-4 ${
         isTop3
           ? "border-stone-200 bg-gradient-to-r from-amber-50 via-white to-white dark:border-stone-800 dark:from-stone-900 dark:via-stone-950 dark:to-stone-950"
           : "border-stone-100 bg-white hover:border-stone-200 hover:bg-stone-50 dark:border-stone-900 dark:bg-stone-950 dark:hover:border-stone-800 dark:hover:bg-stone-900/60"
       } ${flash ? "animate-row-flash" : ""}`}
-      ariaLabel={`Click @${entry.instagram_username} to help them climb the leaderboard`}
     >
       <div className="flex w-8 shrink-0 justify-center">
         <RankBadge rank={entry.rank} />
@@ -68,10 +64,34 @@ function Row({ entry }: { entry: LeaderboardEntry }) {
         size={40}
       />
 
-      <div className="min-w-0 flex-1">
-        <p className="truncate text-[15px] font-semibold text-stone-900 dark:text-stone-100">
-          @{entry.instagram_username}
-        </p>
+      {/* Name + icon open the profile in a new tab; the rest of the row is
+          covered by an invisible +1 button (below). */}
+      <div className="pointer-events-none relative z-10 min-w-0 flex-1">
+        <Link
+          href={instagramProfileUrl(entry.instagram_username)}
+          target="_blank"
+          rel="noopener noreferrer"
+          aria-label={`Open @${entry.instagram_username} on Instagram in a new tab`}
+          className="group pointer-events-auto inline-flex max-w-full items-center gap-1.5 rounded-md transition-colors hover:text-stone-700 dark:hover:text-stone-200"
+        >
+          <span className="truncate text-[15px] font-semibold text-stone-900 underline-offset-4 group-hover:underline dark:text-stone-100">
+            @{entry.instagram_username}
+          </span>
+          <svg
+            aria-hidden="true"
+            viewBox="0 0 24 24"
+            fill="none"
+            stroke="currentColor"
+            strokeWidth={2}
+            strokeLinecap="round"
+            strokeLinejoin="round"
+            className="h-3.5 w-3.5 shrink-0 text-stone-400 transition-colors group-hover:text-stone-600 dark:text-stone-500 dark:group-hover:text-stone-300"
+          >
+            <path d="M15 3h6v6" />
+            <path d="M10 14 21 3" />
+            <path d="M18 13v6a2 2 0 0 1-2 2H5a2 2 0 0 1-2-2V8a2 2 0 0 1 2-2h6" />
+          </svg>
+        </Link>
         {entry.display_name ? (
           <p className="truncate text-xs text-stone-400">{entry.display_name}</p>
         ) : (
@@ -94,8 +114,15 @@ function Row({ entry }: { entry: LeaderboardEntry }) {
         </p>
       </div>
 
-      <PlusOneBadge visible={pulsing} />
-    </ClickTarget>
+      {/* Invisible full-card button: clicking anywhere on the row (except the
+          name link above it) records a click and keeps you on the page. */}
+      <ClickTarget
+        username={entry.instagram_username}
+        onClicks={handleOptimistic}
+        className="absolute inset-0 rounded-2xl"
+        ariaLabel={`Click @${entry.instagram_username} to help them climb the leaderboard`}
+      />
+    </div>
   );
 }
 

@@ -140,6 +140,7 @@ export default async function ProfilePage({ params }: PageProps) {
       <section className="flex flex-col gap-3">
         <ClickTarget
           username={stats.instagram_username}
+          redirect
           className="group relative w-full rounded-2xl bg-gradient-to-r from-amber-500 via-orange-500 to-pink-500 px-6 py-4 text-center text-base font-bold text-white shadow-lg shadow-orange-500/20 transition-all hover:shadow-xl hover:brightness-110 active:scale-[0.985]"
         >
           Help @{stats.instagram_username} climb ↑
@@ -147,6 +148,7 @@ export default async function ProfilePage({ params }: PageProps) {
 
         <ClickTarget
           username={stats.instagram_username}
+          redirect
           className="group relative w-full rounded-2xl border border-stone-300 bg-white px-6 py-4 text-center text-base font-semibold text-stone-700 transition-all hover:border-stone-400 hover:bg-stone-50 active:scale-[0.985] dark:border-stone-700 dark:bg-stone-900 dark:text-stone-200 dark:hover:bg-stone-800"
           ariaLabel={`Visit @${stats.instagram_username} on Instagram (counts as a click)`}
         >
