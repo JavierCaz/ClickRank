@@ -1,69 +1,74 @@
-import Image from "next/image";
+import type { Metadata } from "next";
+import Link from "next/link";
 
-export default function Home() {
+import { Leaderboard } from "@/components/leaderboard";
+import { getLeaderboard } from "@/lib/leaderboard";
+
+export const metadata: Metadata = {
+  title: "ClickRank — Who's the most clickable person on Instagram?",
+  description:
+    "Submit your Instagram profile and climb the leaderboard. Every click counts — more clicks, higher rank.",
+  openGraph: {
+    title: "ClickRank",
+    description:
+      "Who's the most clickable person on Instagram? Click a profile. Help them climb the leaderboard.",
+  },
+};
+
+export const dynamic = "force-dynamic";
+
+export default async function HomePage() {
+  // Fetch both periods server-side; the client toggle switches instantly.
+  const [allTime, today] = await Promise.all([
+    getLeaderboard("all"),
+    getLeaderboard("today"),
+  ]);
+
   return (
-    <div className="flex flex-col flex-1 items-center justify-center bg-zinc-50 font-sans dark:bg-black">
-      <main className="flex flex-1 w-full max-w-3xl flex-col items-center justify-between py-32 px-16 bg-white dark:bg-black sm:items-start">
-        <Image
-          className="dark:invert h-5 w-[100px]"
-          src="/next.svg"
-          alt="Next.js logo"
-          width={100}
-          height={20}
-          priority
-        />
-        <div className="flex flex-col items-center gap-6 text-center sm:items-start sm:text-left">
-          <h1 className="max-w-xs text-3xl font-semibold leading-10 tracking-tight text-black dark:text-zinc-50">
-            To get started, edit the{" "}
-            <code className="rounded bg-black/[.06] px-1.5 py-0.5 font-mono text-[0.9em] dark:bg-white/[.08]">
-              page.tsx
-            </code>{" "}
-            file.
-          </h1>
-          <p className="max-w-md text-lg leading-8 text-zinc-600 dark:text-zinc-400">
-            Looking for a starting point or more instructions? Head over to{" "}
-            <a
-              href="https://vercel.com/templates?framework=next.js&utm_source=create-next-app&utm_medium=appdir-template-tw&utm_campaign=create-next-app"
-              className="font-medium text-zinc-950 dark:text-zinc-50"
-            >
-              Templates
-            </a>{" "}
-            or the{" "}
-            <a
-              href="https://nextjs.org/learn?utm_source=create-next-app&utm_medium=appdir-template-tw&utm_campaign=create-next-app"
-              className="font-medium text-zinc-950 dark:text-zinc-50"
-            >
-              Learning
-            </a>{" "}
-            center.
-          </p>
-        </div>
-        <div className="flex flex-col gap-4 text-base font-medium sm:flex-row">
-          <a
-            className="flex h-12 w-full items-center justify-center gap-2 rounded-full bg-foreground px-5 text-background transition-colors hover:bg-[#383838] dark:hover:bg-[#ccc] md:w-[158px]"
-            href="https://vercel.com/new?utm_source=create-next-app&utm_medium=appdir-template-tw&utm_campaign=create-next-app"
-            target="_blank"
-            rel="noopener noreferrer"
-          >
-            <Image
-              className="dark:invert h-[14px] w-4"
-              src="/vercel.svg"
-              alt="Vercel logomark"
-              width={16}
-              height={14}
-            />
-            Deploy Now
-          </a>
-          <a
-            className="flex h-12 w-full items-center justify-center rounded-full border border-solid border-black/[.08] px-5 transition-colors hover:border-transparent hover:bg-black/[.04] dark:border-white/[.145] dark:hover:bg-[#1a1a1a] md:w-[158px]"
-            href="https://nextjs.org/docs?utm_source=create-next-app&utm_medium=appdir-template-tw&utm_campaign=create-next-app"
-            target="_blank"
-            rel="noopener noreferrer"
-          >
-            Documentation
-          </a>
-        </div>
-      </main>
-    </div>
+    <main className="mx-auto flex w-full max-w-xl flex-1 flex-col gap-8 px-4 pb-16 pt-10 sm:pt-14">
+      {/* Logo + tagline */}
+      <header className="text-center">
+        <Link href="/" className="inline-block" aria-label="ClickRank home">
+          <span className="inline-flex items-center gap-2 text-3xl font-black tracking-tight sm:text-4xl">
+            <span aria-hidden="true">👆</span>
+            <span className="bg-gradient-to-r from-amber-500 via-orange-500 to-pink-500 bg-clip-text text-transparent">
+              ClickRank
+            </span>
+          </span>
+        </Link>
+        <p className="mt-3 text-lg font-medium text-stone-700 dark:text-stone-300">
+          Who&rsquo;s the most clickable person on Instagram?
+        </p>
+        <p className="mt-1 text-sm text-stone-400">
+          Click a profile. Help them climb the leaderboard.
+        </p>
+      </header>
+
+      {/* Submit CTA */}
+      <div className="flex justify-center">
+        <Link
+          href="/submit"
+          className="group inline-flex items-center gap-2 rounded-full bg-stone-900 px-6 py-3 text-sm font-semibold text-white shadow-sm transition-all hover:bg-stone-700 hover:shadow-md active:scale-[0.98] dark:bg-white dark:text-stone-900 dark:hover:bg-stone-200"
+        >
+          <span aria-hidden="true">＋</span>
+          Submit your Instagram profile
+        </Link>
+      </div>
+
+      {/* Leaderboard */}
+      <section aria-label="Leaderboard" className="mt-2">
+        <Leaderboard allTime={allTime} today={today} />
+      </section>
+
+      <footer className="pt-4 text-center text-xs text-stone-400">
+        <p>
+          One valid click per profile, per visitor, per 24 hours.{" "}
+          <Link href="/submit" className="underline underline-offset-2 hover:text-stone-600">
+            Add your profile
+          </Link>
+          .
+        </p>
+      </footer>
+    </main>
   );
 }
