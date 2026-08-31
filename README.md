@@ -2,8 +2,13 @@
 
 Who's the most clickable person on Instagram?
 
-A small social experiment: submit your Instagram profile, then collect clicks.
-Every valid visitor click pushes you up the leaderboard. More clicks = higher rank.
+ClickRank is a small social experiment: people submit their Instagram profiles,
+and profiles are ranked by how many **valid clicks** they receive. Click a
+profile → it climbs the leaderboard → the visitor is redirected to Instagram.
+
+> **The core mechanic:** more clicks = higher rank. One valid click per visitor
+> + profile per rolling 24h window. Deliberately minimal — no accounts, no
+> followers sync, no payments.
 
 ## The core loop
 
@@ -23,10 +28,36 @@ Visitor is redirected to Instagram
 
 ## Tech stack
 
-- **Next.js 16** (App Router, Server Components + Route Handlers)
+- **Next.js 16** (App Router, Server Components + Route Handlers, Turbopack)
 - **React 19**, **Tailwind CSS v4**
-- **Supabase** (Postgres) with Row Level Security
-- TypeScript, strict mode
+- **Supabase** (Postgres) with **Row Level Security** on every table
+- **TypeScript** (strict mode)
+
+## Project layout
+
+```
+app/
+  page.tsx                    Landing: hero + leaderboard (Today / All Time)
+  submit/page.tsx             Profile submission page
+  [username]/page.tsx         Public profile page (rank, clicks, OG metadata)
+  go/[username]/route.ts      GET: records a click, 302 → Instagram
+  api/profiles/route.ts       POST: validate + insert a profile (rate limited)
+  layout.tsx / globals.css    Root layout + Tailwind theme/animations
+  loading.tsx / error.tsx / not-found.tsx
+components/
+  click-target.tsx            "+1" then navigate to /go/[username]
+  leaderboard.tsx             Client leaderboard with period toggle + rows
+  avatar.tsx / submit-form.tsx
+lib/
+  supabase.ts                 Server-only service-role client (the ONLY db client)
+  security.ts                 Visitor cookie, IP hashing, anti-abuse primitives
+  username.ts                 Instagram username validation/normalization
+  leaderboard.ts              Typed wrappers around the SQL ranking functions
+  avatar.ts                   Deterministic generated SVG avatars
+supabase/
+  migrations/                 Schema + RLS + ranking functions (reproducible)
+  seed.sql                    Demo data (dev only)
+```
 
 ## Getting started
 
@@ -35,11 +66,12 @@ Visitor is redirected to Instagram
 The schema lives in `supabase/migrations/`. It creates:
 
 - `profiles` — Instagram username (normalized, unique), display name, avatar
-- `clicks` — one row per valid click, with an **EXCLUDE constraint** enforcing
-  *one valid click per visitor + profile per rolling 24h window*, atomically
-- `submission_events` — lightweight rate limiting for submissions
+- `clicks` — one row per valid click, with an **EXCLUDE constraint**
+  (`btree_gist` + `tstzrange`) enforcing *one valid click per visitor + profile
+  per rolling 24h window*, **atomically in the database**
+- `submission_events` — lightweight per-IP rate limiting for submissions
 - RLS policies + ranking functions (`get_leaderboard`, `get_profile_stats`,
-  `get_next_ranked`)
+  `get_next_ranked`) computed in Postgres
 
 **Local development:**
 
@@ -67,39 +99,54 @@ npm run dev             # http://localhost:3000
 
 ## Environment variables
 
-See `.env.example`. Important security notes:
+See `.env.example`.
 
-- `SUPABASE_SERVICE_ROLE_KEY` is **server-only** — it is never shipped to the
-  browser. All data access (leaderboard reads, profile submission, click
-  recording) happens server-side.
-- `CLICKRANK_IP_HASH_SECRET` salts the HMAC used to hash visitor IPs before
-  storage. Raw IPs are never stored.
+- `NEXT_PUBLIC_SUPABASE_URL` — the Supabase project URL.
+- `SUPABASE_SERVICE_ROLE_KEY` — **server-only**. Never shipped to the browser;
+  all data access (leaderboard reads, profile submission, click recording)
+  happens server-side through `lib/supabase.ts`.
+- `CLICKRANK_IP_HASH_SECRET` — salt for the HMAC used to hash visitor IPs
+  before storage. Raw IPs are never stored. Use a long random string in
+  production (`openssl rand -hex 32`).
 
 ## How the click flow works
 
-1. A visitor taps a profile → the client shows a brief "+1" confirmation.
+1. A visitor taps a profile → the client shows a brief "+1" confirmation
+   (optimistic UI).
 2. The browser navigates to `/go/[username]`.
-3. The server resolves the anonymous visitor id (HttpOnly cookie), hashes the
-   IP, and atomically attempts to insert a click.
+3. The server resolves the anonymous visitor id (HttpOnly cookie, minted if
+   missing), hashes the IP, and **atomically attempts to insert a click**.
 4. The database's EXCLUDE constraint rejects duplicate clicks (same visitor +
    profile within 24h) — no SELECT-then-INSERT race, no client-trusted state.
-5. The visitor is 302-redirected to the Instagram profile regardless.
+5. The visitor is 302-redirected to the Instagram profile **regardless**.
 
 Repeat clicks within the cooldown still reach Instagram; they just don't
 increment the leaderboard.
 
 ## Security model
 
-- **RLS enabled** on every table. Anonymous clients can only read `profiles`
-  (needed for the leaderboard). The `clicks` and `submission_events` tables
-  have no public policies, and the ranking functions are not executable by
-  public roles — a malicious client cannot fabricate clicks or counts.
-- **Server-side validation** for username normalization and duplicate
-  detection; unique index on `lower(username)` makes duplicates race-safe.
+- **RLS enabled everywhere.** Anonymous clients can only `SELECT profiles` (the
+  leaderboard). The `clicks` and `submission_events` tables have zero public
+  policies, and the ranking functions are not executable by anon/authenticated
+  roles — a malicious client cannot fabricate clicks or counts.
+- **No anon key in the browser.** All Supabase access goes through the
+  server-only service-role client; the key never reaches `.next/static/`.
+- **Server-side validation** for username normalization + duplicate detection;
+  a unique index on `lower(username)` makes duplicates race-safe.
 - **No arbitrary redirect URLs** — destinations are always derived from the
   normalized username server-side.
 - **Rate limited** profile submission (per hashed IP).
 - **No raw IPs** stored — only salted HMAC hashes.
+
+## Verification checklist
+
+- `npm run lint` and `npm run build` pass.
+- Click flow: duplicate clicks (including concurrent ones) are rejected by the
+  EXCLUDE constraint; redirect still 302s to Instagram; different
+  profile/different visitor still counts.
+- RLS: anon can only SELECT profiles; cannot write clicks/profiles; cannot
+  EXECUTE ranking functions.
+- No service-role key or env reference in client bundles.
 
 ## Scripts
 
@@ -109,3 +156,8 @@ npm run build  # production build
 npm run start  # serve production build
 npm run lint   # eslint
 ```
+
+## Note for AI agents
+
+See `AGENTS.md` for architecture rules (security boundary, RLS, anti-abuse)
+and the Next.js 16 gotchas that differ from older versions.
