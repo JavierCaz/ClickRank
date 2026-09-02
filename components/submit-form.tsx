@@ -39,7 +39,7 @@ export function SubmitForm() {
         const body = await res.json().catch(() => ({}));
 
         if (!res.ok) {
-          setState({ status: "error", message: body.error ?? "Something went wrong." });
+          setState({ status: "error", message: body.error ?? "Algo salió mal. Inténtalo de nuevo." });
           return;
         }
 
@@ -48,7 +48,7 @@ export function SubmitForm() {
         const added = (body.profile?.instagram_username as string | undefined) ?? null;
         router.push(added ? `/?added=${encodeURIComponent(added)}` : "/");
       } catch {
-        setState({ status: "error", message: "Network error. Please try again." });
+        setState({ status: "error", message: "Error de red. Inténtalo de nuevo." });
       }
     },
     [router]
@@ -60,28 +60,28 @@ export function SubmitForm() {
       className="flex w-full flex-col gap-4 rounded-3xl border border-stone-200 bg-white p-6 dark:border-stone-800 dark:bg-stone-900"
     >
       <label className="flex flex-col gap-1.5">
-        <span className="text-sm font-semibold">Instagram username *</span>
+        <span className="text-sm font-semibold">Nombre de usuario de Instagram *</span>
         <input
           type="text"
           name="username"
           required
           autoComplete="off"
           spellCheck={false}
-          placeholder="@yourusername"
+          placeholder="@tuusuario"
           className="w-full rounded-xl border border-stone-300 bg-white px-4 py-3 text-base outline-none transition-colors placeholder:text-stone-400 focus:border-stone-500 dark:border-stone-700 dark:bg-stone-950 dark:placeholder:text-stone-600"
         />
       </label>
 
       <label className="flex flex-col gap-1.5">
         <span className="text-sm font-semibold">
-          Display name <span className="font-normal text-stone-400">(optional)</span>
+          Nombre visible <span className="font-normal text-stone-400">(opcional)</span>
         </span>
         <input
           type="text"
           name="displayName"
           autoComplete="off"
           maxLength={60}
-          placeholder="Maria"
+          placeholder="María"
           className="w-full rounded-xl border border-stone-300 bg-white px-4 py-3 text-base outline-none transition-colors placeholder:text-stone-400 focus:border-stone-500 dark:border-stone-700 dark:bg-stone-950 dark:placeholder:text-stone-600"
         />
       </label>
@@ -100,12 +100,12 @@ export function SubmitForm() {
         disabled={state.status === "submitting"}
         className="mt-1 rounded-full bg-stone-900 px-6 py-3.5 text-sm font-semibold text-white transition-all hover:bg-stone-700 active:scale-[0.98] disabled:cursor-not-allowed disabled:opacity-60 dark:bg-white dark:text-stone-900 dark:hover:bg-stone-200"
       >
-        {state.status === "submitting" ? "Adding…" : "Add my profile"}
+        {state.status === "submitting" ? "Añadiendo…" : "Añadir mi perfil"}
       </button>
 
       <p className="text-center text-xs text-stone-400">
-        You don&rsquo;t need an account. Your username will be public on the
-        leaderboard.
+        No necesitas una cuenta. Tu nombre de usuario será público en la
+        clasificación.
       </p>
     </form>
   );

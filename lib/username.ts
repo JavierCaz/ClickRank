@@ -5,6 +5,9 @@
  * and are 1–30 characters long. We normalize to a canonical lowercase form
  * before storing/comparing so that `@John.Doe` and `johndoe` never create
  * duplicate profiles.
+ *
+ * Error strings are user-facing (rendered by the submit form) and kept in
+ * Spanish; the site UI is Spanish-only.
  */
 
 export const INSTAGRAM_USERNAME_REGEX = /^[a-zA-Z0-9._]{1,30}$/;
@@ -34,7 +37,7 @@ export function normalizeInstagramUsername(raw: string): UsernameResult {
   const input = (raw ?? "").trim();
 
   if (!input) {
-    return { ok: false, error: "Please enter an Instagram username." };
+    return { ok: false, error: "Introduce un nombre de usuario de Instagram." };
   }
 
   let candidate = input;
@@ -45,20 +48,20 @@ export function normalizeInstagramUsername(raw: string): UsernameResult {
     try {
       url = new URL(input);
     } catch {
-      return { ok: false, error: "That URL is not valid." };
+      return { ok: false, error: "Esa URL no es válida." };
     }
 
     const host = url.hostname.replace(/^www\./i, "").toLowerCase();
     if (host !== "instagram.com") {
       return {
         ok: false,
-        error: "Only Instagram profile links are allowed.",
+        error: "Solo se permiten enlaces de perfiles de Instagram.",
       };
     }
 
     const path = url.pathname.replace(/^\/+/, "").replace(/\/+$/, "");
     if (!path) {
-      return { ok: false, error: "That Instagram link has no username." };
+      return { ok: false, error: "Ese enlace de Instagram no tiene nombre de usuario." };
     }
     candidate = path;
   }
@@ -70,7 +73,7 @@ export function normalizeInstagramUsername(raw: string): UsernameResult {
     return {
       ok: false,
       error:
-        "Usernames can only contain letters, numbers, periods and underscores (max 30 characters).",
+        "El nombre de usuario solo puede contener letras, números, puntos y guiones bajos (máximo 30 caracteres).",
     };
   }
 
