@@ -21,7 +21,8 @@ export const dynamic = "force-dynamic";
  *   2. Resolve the anonymous visitor id (cookie, minted if missing).
  *   3. Atomically attempt to record a valid click. The database's EXCLUDE
  *      constraint rejects duplicates for the same (visitor, profile) within
- *      24h — no SELECT-then-INSERT race, no client-trusted state.
+ *      the rolling cooldown window (see click_config) — no SELECT-then-INSERT
+ *      race, no client-trusted state.
  *   4. Set the visitor cookie and 302-redirect to the Instagram profile.
  *
  * The redirect always happens, even when the click is a repeat (the visitor
@@ -66,7 +67,7 @@ export async function GET(
   if (insertError) {
     const code = insertError.code;
     const isDuplicate =
-      code === "23P01" || // exclusion_violation (24h cooldown)
+      code === "23P01" || // exclusion_violation (cooldown window)
       code === "23505"; // unique_violation (belt & braces)
 
     if (!isDuplicate) {

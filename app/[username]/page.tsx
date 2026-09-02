@@ -156,8 +156,8 @@ export default async function ProfilePage({ params }: PageProps) {
         </ClickTarget>
 
         <p className="text-center text-xs text-stone-400">
-          Every visit counts as a click (max one per 24 hours) and sends you
-          straight to Instagram.
+          Every visit counts as a click (rapid repeat clicks within the
+          cooldown window don&rsquo;t) and sends you straight to Instagram.
         </p>
       </section>
 

@@ -15,8 +15,9 @@ and profiles are ranked by how many valid clicks they receive. Click a profile �
 it climbs the leaderboard → the visitor is redirected to Instagram.
 
 > **Core mechanic:** more clicks = higher rank. One valid click per visitor +
-> profile per rolling 24h window. Do not add social features, auth, followers
-> sync, payments, or analytics dashboards. Keep it minimal.
+> profile per rolling cooldown window (see `click_config`, default 5 seconds).
+> Do not add social features, auth, followers sync, payments, or analytics
+> dashboards. Keep it minimal.
 
 ## Stack
 
@@ -48,6 +49,8 @@ lib/
   avatar.ts                   Deterministic generated SVG avatars
 supabase/
   migrations/20260831000000_initial.sql   Schema + RLS + ranking functions
+  migrations/20260902000000_click_cooldown_configurable.sql
+                                        Configurable click cooldown
   seed.sql                    Demo data (dev only)
 ```
 
@@ -63,8 +66,11 @@ supabase/
    executable by anon/authenticated roles. Don't "simplify" this.
 3. **Anti-abuse is enforced by the database**, not app logic. The `clicks`
    table has an EXCLUDE constraint (`btree_gist` + `tstzrange`) that atomically
-   enforces one valid click per (visitor, profile) per 24h. Never replace this
-   with SELECT → check → INSERT.
+   enforces one valid click per (visitor, profile) per rolling cooldown window.
+   The window length lives in the single-row `click_config` table and is read
+   via `click_cooldown()` (default `interval '5 seconds'`). Tune it with
+   `update public.click_config set cooldown = interval '…';` — never hardcode
+   a duration in app code. Never replace this with SELECT → check → INSERT.
 4. **Never store raw IPs.** Always `hashIp()` (HMAC with
    `CLICKRANK_IP_HASH_SECRET`) before persisting anything IP-derived.
 5. **Redirect targets are always derived server-side** from the normalized

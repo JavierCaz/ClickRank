@@ -3,12 +3,23 @@
 import Link from "next/link";
 import { useCallback, useRef, useState } from "react";
 
+export interface ClickResult {
+  ok: boolean;
+  duplicate: boolean;
+  /** Full cooldown window length in ms (the live DB `click_config` value). */
+  cooldownMs: number;
+  /** Ms left before this visitor can click this profile again (0 = none). */
+  cooldownRemainingMs: number;
+}
+
 interface ClickTargetProps {
   username: string;
   className?: string;
   children?: React.ReactNode;
-  /** Callback fired the moment a click is registered (for optimistic counts). */
+  /** Callback fired the moment a click is attempted (optimistic UI hooks). */
   onClicks?: () => void;
+  /** Server verdict after the click attempt: counted or duplicate + cooldown. */
+  onResult?: (result: ClickResult) => void;
   /** Optional: render as a full link (semantic) but intercept clicks. */
   asLink?: boolean;
   ariaLabel?: string;
@@ -32,15 +43,17 @@ interface ClickTargetProps {
  *      server validates anti-abuse rules, records the click and redirects to
  *      the Instagram profile.
  *
- * The actual validity check is server-side; this component only optimistically
- * shows the confirmation. Repeat clicks within 24h are silent no-ops — only
- * the recorded count is affected.
+ * The actual validity check is server-side; this component shows the brief
+ * "+1" confirmation and reports the server verdict through `onResult`
+ * (counted or duplicate + remaining cooldown) so callers can render accurate
+ * counts and a DB-driven cooldown indicator.
  */
 export function ClickTarget({
   username,
   className,
   children,
   onClicks,
+  onResult,
   asLink = false,
   ariaLabel,
   redirect = false,
@@ -72,14 +85,25 @@ export function ClickTarget({
         // SELECT-then-INSERT race. Failures are logged, never surfaced.
         fetch(`/api/clicks/${encodeURIComponent(username)}`, {
           method: "POST",
+        })
+          .then(async (res) => {
+            if (!res.ok) return null;
+            try {
+              return (await res.json()) as ClickResult;
+            } catch {
+              return null;
+            }
+          })
+          .then((result) => {
+            if (result) onResult?.(result);
         }).catch((err) => {
-          console.error("[clickrank] failed to record click:", err);
-        });
+            console.error("[clickrank] failed to record click:", err);
+          });
         // Dismiss the "+1" badge after a short confirmation.
         timeoutRef.current = setTimeout(() => setPulsing(false), 950);
       }
     },
-    [username, onClicks, redirect]
+    [username, onClicks, onResult, redirect]
   );
 
   const commonProps = {

@@ -7,8 +7,8 @@ and profiles are ranked by how many **valid clicks** they receive. Click a
 profile → it climbs the leaderboard → the visitor is redirected to Instagram.
 
 > **The core mechanic:** more clicks = higher rank. One valid click per visitor
-> + profile per rolling 24h window. Deliberately minimal — no accounts, no
-> followers sync, no payments.
+> + profile per rolling cooldown window (default 5 seconds). Deliberately
+> minimal — no accounts, no followers sync, no payments.
 
 ## The core loop
 
@@ -68,7 +68,10 @@ The schema lives in `supabase/migrations/`. It creates:
 - `profiles` — Instagram username (normalized, unique), display name, avatar
 - `clicks` — one row per valid click, with an **EXCLUDE constraint**
   (`btree_gist` + `tstzrange`) enforcing *one valid click per visitor + profile
-  per rolling 24h window*, **atomically in the database**
+  per rolling cooldown window*, **atomically in the database** (window length
+  comes from the `click_config` table)
+- `click_config` — single-row config table holding the click cooldown
+  interval (default 5 seconds)
 - `submission_events` — lightweight per-IP rate limiting for submissions
 - RLS policies + ranking functions (`get_leaderboard`, `get_profile_stats`,
   `get_next_ranked`) computed in Postgres
@@ -117,18 +120,23 @@ See `.env.example`.
 3. The server resolves the anonymous visitor id (HttpOnly cookie, minted if
    missing), hashes the IP, and **atomically attempts to insert a click**.
 4. The database's EXCLUDE constraint rejects duplicate clicks (same visitor +
-   profile within 24h) — no SELECT-then-INSERT race, no client-trusted state.
+   profile within the rolling cooldown window) — no SELECT-then-INSERT race,
+   no client-trusted state.
 5. The visitor is 302-redirected to the Instagram profile **regardless**.
 
 Repeat clicks within the cooldown still reach Instagram; they just don't
-increment the leaderboard.
+increment the leaderboard. On the landing page the row shows a live
+countdown pill + progress bar while a window is active ("Click counted —
+next click in Ns", or amber "Already helped" on a blocked attempt), driven
+by the DB window so it always matches `click_config`.
 
 ## Security model
 
 - **RLS enabled everywhere.** Anonymous clients can only `SELECT profiles` (the
-  leaderboard). The `clicks` and `submission_events` tables have zero public
-  policies, and the ranking functions are not executable by anon/authenticated
-  roles — a malicious client cannot fabricate clicks or counts.
+  leaderboard). The `clicks`, `submission_events`, and `click_config` tables
+  have zero public policies, and the ranking functions are not executable by
+  anon/authenticated roles — a malicious client cannot fabricate clicks or
+  counts.
 - **No anon key in the browser.** All Supabase access goes through the
   server-only service-role client; the key never reaches `.next/static/`.
 - **Server-side validation** for username normalization + duplicate detection;
@@ -137,6 +145,26 @@ increment the leaderboard.
   normalized username server-side.
 - **Rate limited** profile submission (per hashed IP).
 - **No raw IPs** stored — only salted HMAC hashes.
+## Tuning the click cooldown
+
+Clicks are limited to one per (visitor, profile) per rolling cooldown window,
+currently **5 seconds**. The database reads the window from the single-row
+`click_config` table on every click insert — no app code or deploy involved.
+
+Change it with one UPDATE (Supabase SQL editor, or as a migration):
+
+```sql
+update public.click_config set cooldown = interval '5 minutes';
+```
+
+The new window applies to clicks recorded after the UPDATE. Raising the
+cooldown needs no backfill (already-recorded clicks just expire sooner).
+Lowering it should also reshape existing rows so the old, longer windows stop
+blocking people:
+
+```sql
+update public.clicks set valid_until = created_at + public.click_cooldown();
+```
 
 ## Verification checklist
 

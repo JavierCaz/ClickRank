@@ -5,22 +5,22 @@ import crypto from "node:crypto";
 /**
  * Anti-abuse primitives. Everything here runs server-side only.
  *
- * Threat model (per requirements): a visitor can generate at most one valid
- * click for the same profile within a 24-hour period. Visitors may click
- * different profiles freely and may return to a profile after the cooldown.
+ * Threat model: a visitor can generate at most one valid click for the same
+ * profile within a rolling cooldown window. Visitors may click different
+ * profiles freely and may return to a profile after the cooldown.
  *
  * We identify a visitor by:
  *   1. An anonymous visitor id stored in a cookie (HttpOnly, 1 year).
  *   2. A salted HMAC hash of their IP address (never stored raw).
  *
- * The 24h cooldown itself is enforced atomically in the database via an
- * EXCLUDE constraint (see the migration) — not by application logic — so
- * concurrent click/back/click races cannot bypass it.
+ * The cooldown window itself is enforced atomically in the database via an
+ * EXCLUDE constraint (see the migrations) — not by application logic — so
+ * concurrent click/back/click races cannot bypass it. The window length is
+ * stored in `click_config` and is tunable at runtime with a single UPDATE.
  */
 
 export const VISITOR_COOKIE_NAME = "cr_visitor";
 export const VISITOR_COOKIE_MAX_AGE = 60 * 60 * 24 * 365; // 1 year
-export const CLICK_COOLDOWN_HOURS = 24;
 
 /** Generate a fresh anonymous visitor id (cryptographically random UUIDv4). */
 export function newVisitorId(): string {
@@ -69,9 +69,4 @@ export function getClientIp(headers: Headers): string {
     if (first) return first;
   }
   return headers.get("x-real-ip")?.trim() || "unknown";
-}
-
-/** Number of hours the current click is valid for (constant from env). */
-export function clickCooldownHours(): number {
-  return CLICK_COOLDOWN_HOURS;
 }

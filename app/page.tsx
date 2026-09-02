@@ -62,7 +62,7 @@ export default async function HomePage() {
 
       <footer className="pt-4 text-center text-xs text-stone-400">
         <p>
-          One valid click per profile, per visitor, per 24 hours.{" "}
+          One valid click per profile, per visitor — rapid repeat clicks don&rsquo;t count.{" "}
           <Link href="/submit" className="underline underline-offset-2 hover:text-stone-600">
             Add your profile
           </Link>

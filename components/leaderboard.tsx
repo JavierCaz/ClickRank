@@ -1,10 +1,10 @@
 "use client";
 
 import Link from "next/link";
-import { useMemo, useState } from "react";
+import { useEffect, useMemo, useRef, useState } from "react";
 
 import { Avatar } from "@/components/avatar";
-import { ClickTarget } from "@/components/click-target";
+import { ClickTarget, type ClickResult } from "@/components/click-target";
 import type { LeaderboardEntry } from "@/lib/leaderboard";
 import { instagramProfileUrl } from "@/lib/username";
 
@@ -32,15 +32,89 @@ function RankBadge({ rank }: { rank: number }) {
   );
 }
 
+type CooldownState = {
+  /** Whether the last attempt was blocked by the cooldown (vs counted). */
+  duplicate: boolean;
+  /** Epoch ms when the current window ends (the DB row's valid_until). */
+  until: number;
+  /** Full window length in ms (the live DB `click_config` value). */
+  totalMs: number;
+};
+
+/**
+ * Live cooldown indicator shown while a (visitor, profile) window is active:
+ * a countdown pill plus a progress bar that drains as the window expires.
+ * All timing comes from the DB (valid_until / window length) — never a
+ * hardcoded duration — so tuning `click_config` is reflected automatically.
+ */
+function CooldownNotice({ state }: { state: CooldownState }) {
+  const [now, setNow] = useState(() => Date.now());
+
+  useEffect(() => {
+    const id = window.setInterval(() => setNow(Date.now()), 100);
+    return () => window.clearInterval(id);
+  }, [state.until]);
+
+  const remainingMs = Math.max(0, state.until - now);
+  if (remainingMs <= 0) return null;
+
+  const seconds = Math.ceil(remainingMs / 1000);
+  const pct = state.totalMs > 0 ? (remainingMs / state.totalMs) * 100 : 100;
+  const blocked = state.duplicate;
+
+  return (
+    <div
+      aria-live="polite"
+      className="pointer-events-none absolute inset-x-0 bottom-0 z-20 flex flex-col items-center"
+    >
+      <p
+        className={`mb-1.5 max-w-[90%] truncate rounded-full border px-2.5 py-0.5 text-[11px] font-semibold shadow-sm backdrop-blur ${
+          blocked
+            ? "border-amber-200 bg-amber-50/90 text-amber-700 dark:border-amber-500/30 dark:bg-amber-950/80 dark:text-amber-300"
+            : "border-emerald-200 bg-emerald-50/90 text-emerald-700 dark:border-emerald-500/30 dark:bg-emerald-950/80 dark:text-emerald-300"
+        }`}
+      >
+        {blocked ? "Already helped —" : "Click counted —"} next click in {seconds}s
+      </p>
+      <div className="h-1 w-full overflow-hidden rounded-b-2xl bg-stone-900/5 dark:bg-white/10">
+        <div
+          className={`h-full transition-[width] duration-150 ease-linear ${
+            blocked ? "bg-amber-400" : "bg-emerald-500/80"
+          }`}
+          style={{ width: `${Math.min(100, pct)}%` }}
+        />
+      </div>
+    </div>
+  );
+}
+
 function Row({ entry }: { entry: LeaderboardEntry }) {
   const [count, setCount] = useState(entry.clicks);
   const [flash, setFlash] = useState(false);
+  const [cooldown, setCooldown] = useState<CooldownState | null>(null);
+  const flashTimer = useRef<ReturnType<typeof setTimeout> | null>(null);
 
-  const handleOptimistic = () => {
-    setCount((c) => c + 1);
-    setFlash(true);
-    // Drop the flash class so it can re-trigger on the next click.
-    setTimeout(() => setFlash(false), 950);
+  // Called with the server verdict after each click attempt. The count only
+  // moves when the DB actually recorded the click (no optimistic inflation on
+  // duplicate clicks), and the cooldown state comes straight from the DB
+  // window so the UI always matches the live `click_config` value.
+  const handleResult = (result: ClickResult) => {
+    if (!result.duplicate) {
+      setCount((c) => c + 1);
+      setFlash(true);
+      if (flashTimer.current) clearTimeout(flashTimer.current);
+      flashTimer.current = setTimeout(() => setFlash(false), 950);
+    }
+
+    if (result.cooldownMs > 0 && result.cooldownRemainingMs > 0) {
+      setCooldown({
+        duplicate: result.duplicate,
+        until: Date.now() + result.cooldownRemainingMs,
+        totalMs: result.cooldownMs,
+      });
+    } else {
+      setCooldown(null);
+    }
   };
 
   const isTop3 = entry.rank <= 3;
@@ -118,10 +192,13 @@ function Row({ entry }: { entry: LeaderboardEntry }) {
           name link above it) records a click and keeps you on the page. */}
       <ClickTarget
         username={entry.instagram_username}
-        onClicks={handleOptimistic}
+        onResult={handleResult}
         className="absolute inset-0 rounded-2xl"
         ariaLabel={`Click @${entry.instagram_username} to help them climb the leaderboard`}
       />
+
+      {/* DB-driven cooldown indicator (visible while a window is active). */}
+      {cooldown ? <CooldownNotice state={cooldown} /> : null}
     </div>
   );
 }
