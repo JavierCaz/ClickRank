@@ -1,120 +1,59 @@
 "use client";
 
-import Link from "next/link";
+import { useRouter } from "next/navigation";
 import { useCallback, useState } from "react";
 
-import { Avatar } from "@/components/avatar";
-
 interface SubmitState {
-  status: "idle" | "submitting" | "success" | "error";
+  status: "idle" | "submitting" | "error";
   message?: string;
-  profile?: {
-    id: string;
-    instagram_username: string;
-    display_name: string | null;
-    avatar_url: string | null;
-    created_at: string;
-  };
 }
 
 /**
  * Profile submission form.
  *
  * The heavy lifting (validation, normalization, duplicate check, insert) is
- * done server-side in POST /api/profiles. This component only collects input
- * and renders the result.
+ * done server-side in POST /api/profiles. This component only collects input.
+ * On success the visitor is sent straight to the leaderboard, where their new
+ * profile is live (with a short confirmation banner on the home page).
  */
 export function SubmitForm() {
+  const router = useRouter();
   const [state, setState] = useState<SubmitState>({ status: "idle" });
-  const [copied, setCopied] = useState(false);
 
-  const handleSubmit = useCallback(async (e: React.FormEvent<HTMLFormElement>) => {
-    e.preventDefault();
-    const form = e.currentTarget;
-    const username = new FormData(form).get("username") as string;
-    const displayName = new FormData(form).get("displayName") as string;
+  const handleSubmit = useCallback(
+    async (e: React.FormEvent<HTMLFormElement>) => {
+      e.preventDefault();
+      const form = e.currentTarget;
+      const username = new FormData(form).get("username") as string;
+      const displayName = new FormData(form).get("displayName") as string;
 
-    setState({ status: "submitting" });
+      setState({ status: "submitting" });
 
-    try {
-      const res = await fetch("/api/profiles", {
-        method: "POST",
-        headers: { "Content-Type": "application/json" },
-        body: JSON.stringify({ username, displayName }),
-      });
+      try {
+        const res = await fetch("/api/profiles", {
+          method: "POST",
+          headers: { "Content-Type": "application/json" },
+          body: JSON.stringify({ username, displayName }),
+        });
 
-      const body = await res.json().catch(() => ({}));
+        const body = await res.json().catch(() => ({}));
 
-      if (!res.ok) {
-        setState({ status: "error", message: body.error ?? "Something went wrong." });
-        return;
+        if (!res.ok) {
+          setState({ status: "error", message: body.error ?? "Something went wrong." });
+          return;
+        }
+
+        // Success — straight to the leaderboard. The `added` query param
+        // triggers a one-line confirmation banner on the home page.
+        const added = (body.profile?.instagram_username as string | undefined) ?? null;
+        router.push(added ? `/?added=${encodeURIComponent(added)}` : "/");
+      } catch {
+        setState({ status: "error", message: "Network error. Please try again." });
       }
+    },
+    [router]
+  );
 
-      setState({ status: "success", profile: body.profile });
-    } catch {
-      setState({ status: "error", message: "Network error. Please try again." });
-    }
-  }, []);
-
-  const shareUrl =
-    state.profile && typeof window !== "undefined"
-      ? `${window.location.origin}/${state.profile.instagram_username}`
-      : "";
-
-  const copyShareLink = useCallback(async () => {
-    try {
-      await navigator.clipboard.writeText(shareUrl);
-      setCopied(true);
-      setTimeout(() => setCopied(false), 1600);
-    } catch {
-      // Clipboard API unavailable — fall back to prompt for manual copy.
-      window.prompt("Copy your ClickRank link:", shareUrl);
-    }
-  }, [shareUrl]);
-
-  // --- Success state --------------------------------------------------------
-  if (state.status === "success" && state.profile) {
-    return (
-      <div className="animate-slide-up flex flex-col items-center gap-5 rounded-3xl border border-emerald-200 bg-emerald-50/60 p-8 text-center dark:border-emerald-900 dark:bg-emerald-950/30">
-        <p className="text-4xl" aria-hidden="true">
-          🎉
-        </p>
-        <h2 className="text-2xl font-black">You&rsquo;re on the board!</h2>
-        <Avatar
-          username={state.profile.instagram_username}
-          displayName={state.profile.display_name}
-          avatarUrl={state.profile.avatar_url}
-          size={72}
-        />
-        <p className="text-sm text-stone-600 dark:text-stone-300">
-          <span className="font-bold">@{state.profile.instagram_username}</span>{" "}
-          is now on ClickRank. Share your page to start collecting clicks.
-        </p>
-
-        <div className="flex flex-col gap-2 sm:flex-row">
-          <Link
-            href={`/${state.profile.instagram_username}`}
-            className="rounded-full bg-stone-900 px-5 py-2.5 text-sm font-semibold text-white dark:bg-white dark:text-stone-900"
-          >
-            View your page
-          </Link>
-          <button
-            type="button"
-            onClick={copyShareLink}
-            className="rounded-full border border-stone-300 px-5 py-2.5 text-sm font-semibold dark:border-stone-700"
-          >
-            {copied ? "Copied ✓" : "Copy share link"}
-          </button>
-        </div>
-
-        <p className="max-w-full truncate font-mono text-xs text-stone-400">
-          {shareUrl}
-        </p>
-      </div>
-    );
-  }
-
-  // --- Form states ----------------------------------------------------------
   return (
     <form
       onSubmit={handleSubmit}

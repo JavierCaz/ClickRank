@@ -32,13 +32,12 @@ it climbs the leaderboard → the visitor is redirected to Instagram.
 app/
   page.tsx                    Landing: hero + leaderboard (Today / All Time)
   submit/page.tsx             Profile submission page
-  [username]/page.tsx         Public profile page (rank, clicks, OG metadata)
   go/[username]/route.ts      GET: records a click, 302 → Instagram
   api/profiles/route.ts       POST: validate + insert a profile (rate limited)
   layout.tsx / globals.css    Root layout + Tailwind theme/animations
   loading.tsx / error.tsx / not-found.tsx
 components/
-  click-target.tsx            "+1" then navigate to /go/[username]
+  click-target.tsx            "+1" click flow (POST or /go redirect)
   leaderboard.tsx             Client leaderboard with period toggle + rows
   avatar.tsx / submit-form.tsx
 lib/

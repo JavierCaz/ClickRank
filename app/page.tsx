@@ -17,7 +17,15 @@ export const metadata: Metadata = {
 
 export const dynamic = "force-dynamic";
 
-export default async function HomePage() {
+interface HomePageProps {
+  searchParams: Promise<{ added?: string }>;
+}
+
+export default async function HomePage({ searchParams }: HomePageProps) {
+  // The submit flow redirects here with ?added=<username> after a successful
+  // insert, so the new profile owner gets a confirmation on arrival.
+  const { added } = await searchParams;
+
   // Fetch both periods server-side; the client toggle switches instantly.
   const [allTime, today] = await Promise.all([
     getLeaderboard("all"),
@@ -43,6 +51,19 @@ export default async function HomePage() {
           Click a profile. Help them climb the leaderboard.
         </p>
       </header>
+
+      {/* Just-added confirmation, shown after a successful submit */}
+      {added && (
+        <div className="flex justify-center">
+          <p
+            role="status"
+            className="animate-slide-up inline-flex items-center gap-2 rounded-full border border-emerald-200 bg-emerald-50/80 px-4 py-2 text-sm font-semibold text-emerald-800 dark:border-emerald-900 dark:bg-emerald-950/40 dark:text-emerald-300"
+          >
+            <span aria-hidden="true">🎉</span>
+            @{added} is on the board!
+          </p>
+        </div>
+      )}
 
       {/* Submit CTA */}
       <div className="flex justify-center">
