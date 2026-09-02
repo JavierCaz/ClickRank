@@ -74,7 +74,8 @@ function CooldownNotice({ state }: { state: CooldownState }) {
             : "border-emerald-200 bg-emerald-50/90 text-emerald-700 dark:border-emerald-500/30 dark:bg-emerald-950/80 dark:text-emerald-300"
         }`}
       >
-        {blocked ? "Already helped —" : "Click counted —"} next click in {seconds}s
+        {blocked ? "Ya has ayudado —" : "Click contado —"} próximo click en{" "}
+        {seconds}s
       </p>
       <div className="h-1 w-full overflow-hidden rounded-b-2xl bg-stone-900/5 dark:bg-white/10">
         <div
@@ -145,7 +146,7 @@ function Row({ entry }: { entry: LeaderboardEntry }) {
           href={instagramProfileUrl(entry.instagram_username)}
           target="_blank"
           rel="noopener noreferrer"
-          aria-label={`Open @${entry.instagram_username} on Instagram in a new tab`}
+          aria-label={`Abrir @${entry.instagram_username} en Instagram en una pestaña nueva`}
           className="group pointer-events-auto inline-flex max-w-full items-center gap-1.5 rounded-md transition-colors hover:text-stone-700 dark:hover:text-stone-200"
         >
           <span className="truncate text-[15px] font-semibold text-stone-900 underline-offset-4 group-hover:underline dark:text-stone-100">
@@ -170,7 +171,7 @@ function Row({ entry }: { entry: LeaderboardEntry }) {
           <p className="truncate text-xs text-stone-400">{entry.display_name}</p>
         ) : (
           <p className="truncate text-xs text-stone-400">
-            Click to help them climb ↑
+            Haz click para ayudarle a subir ↑
           </p>
         )}
       </div>
@@ -194,7 +195,7 @@ function Row({ entry }: { entry: LeaderboardEntry }) {
         username={entry.instagram_username}
         onResult={handleResult}
         className="absolute inset-0 rounded-2xl"
-        ariaLabel={`Click @${entry.instagram_username} to help them climb the leaderboard`}
+        ariaLabel={`Haz click en @${entry.instagram_username} para ayudarle a subir en la clasificación`}
       />
 
       {/* DB-driven cooldown indicator (visible while a window is active). */}
@@ -217,13 +218,13 @@ export function Leaderboard({ allTime, today }: LeaderboardProps) {
       <div className="mb-4 flex items-center justify-center">
         <div
           role="tablist"
-          aria-label="Leaderboard period"
+          aria-label="Período de la clasificación"
           className="inline-flex rounded-full border border-stone-200 bg-white p-1 dark:border-stone-800 dark:bg-stone-900"
         >
           {(
             [
-              ["all", "All Time"],
-              ["today", "Today"],
+              ["all", "Todo"],
+              ["today", "Hoy"],
             ] as [Period, string][]
           ).map(([key, label]) => (
             <button
@@ -248,10 +249,10 @@ export function Leaderboard({ allTime, today }: LeaderboardProps) {
       {entries.length === 0 ? (
         <div className="rounded-2xl border border-dashed border-stone-300 bg-white px-6 py-12 text-center dark:border-stone-800 dark:bg-stone-950">
           <p className="text-lg font-semibold text-stone-700 dark:text-stone-300">
-            No clicks yet {period === "today" ? "today" : ""}
+            {period === "today" ? "Aún no hay clicks hoy" : "Aún no hay clicks"}
           </p>
           <p className="mt-1 text-sm text-stone-400">
-            Be the first to submit a profile and get clicking.
+            Sé el primero en enviar un perfil y empieza a hacer clicks.
           </p>
         </div>
       ) : (

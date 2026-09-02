@@ -39,20 +39,19 @@ Visitor is redirected to Instagram
 app/
   page.tsx                    Landing: hero + leaderboard (Today / All Time)
   submit/page.tsx             Profile submission page
-  [username]/page.tsx         Public profile page (rank, clicks, OG metadata)
   go/[username]/route.ts      GET: records a click, 302 → Instagram
   api/profiles/route.ts       POST: validate + insert a profile (rate limited)
   layout.tsx / globals.css    Root layout + Tailwind theme/animations
   loading.tsx / error.tsx / not-found.tsx
 components/
-  click-target.tsx            "+1" then navigate to /go/[username]
+  click-target.tsx            "+1" click flow (POST or /go redirect)
   leaderboard.tsx             Client leaderboard with period toggle + rows
   avatar.tsx / submit-form.tsx
 lib/
   supabase.ts                 Server-only service-role client (the ONLY db client)
   security.ts                 Visitor cookie, IP hashing, anti-abuse primitives
   username.ts                 Instagram username validation/normalization
-  leaderboard.ts              Typed wrappers around the SQL ranking functions
+  leaderboard.ts              Typed wrapper around the SQL ranking function
   avatar.ts                   Deterministic generated SVG avatars
 supabase/
   migrations/                 Schema + RLS + ranking functions (reproducible)
@@ -114,21 +113,23 @@ See `.env.example`.
 
 ## How the click flow works
 
-1. A visitor taps a profile → the client shows a brief "+1" confirmation
-   (optimistic UI).
-2. The browser navigates to `/go/[username]`.
+1. On the leaderboard a visitor taps a profile row -> the client shows a brief
+   "+1" confirmation (optimistic UI).
+2. The client POSTs to `/api/clicks/[username]`; the visitor stays on the page.
 3. The server resolves the anonymous visitor id (HttpOnly cookie, minted if
    missing), hashes the IP, and **atomically attempts to insert a click**.
 4. The database's EXCLUDE constraint rejects duplicate clicks (same visitor +
-   profile within the rolling cooldown window) — no SELECT-then-INSERT race,
+   profile within the rolling cooldown window) - no SELECT-then-INSERT race,
    no client-trusted state.
-5. The visitor is 302-redirected to the Instagram profile **regardless**.
+5. The row updates with the server verdict: the count only moves when the DB
+   actually recorded the click, and a live countdown pill + progress bar shows
+   while a (visitor, profile) cooldown window is active ("Click counted -
+   next click in Ns", or amber "Already helped" on a blocked attempt), driven
+   by the DB window so it always matches `click_config`.
 
-Repeat clicks within the cooldown still reach Instagram; they just don't
-increment the leaderboard. On the landing page the row shows a live
-countdown pill + progress bar while a window is active ("Click counted —
-next click in Ns", or amber "Already helped" on a blocked attempt), driven
-by the DB window so it always matches `click_config`.
+A separate `/go/[username]` route records the click and 302-redirects the
+visitor to the Instagram profile **regardless** of whether the click counted
+- handy when the click should hand the visitor off to Instagram.
 
 ## Security model
 

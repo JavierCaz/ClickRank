@@ -6,22 +6,22 @@ export default function NotFound() {
       <p className="text-4xl" aria-hidden="true">
         🤷
       </p>
-      <h1 className="text-xl font-bold">Profile not found</h1>
+      <h1 className="text-xl font-bold">Perfil no encontrado</h1>
       <p className="text-sm text-stone-400">
-        That profile isn&rsquo;t on ClickRank (yet).
+        Ese perfil aún no está en ClickRank.
       </p>
       <div className="flex gap-3">
         <Link
           href="/submit"
           className="rounded-full bg-stone-900 px-5 py-2.5 text-sm font-semibold text-white dark:bg-white dark:text-stone-900"
         >
-          Add it
+          Añádelo
         </Link>
         <Link
           href="/"
           className="rounded-full border border-stone-300 px-5 py-2.5 text-sm font-semibold dark:border-stone-700"
         >
-          Back to leaderboard
+          Volver a la clasificación
         </Link>
       </div>
     </main>

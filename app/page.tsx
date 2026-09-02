@@ -5,19 +5,27 @@ import { Leaderboard } from "@/components/leaderboard";
 import { getLeaderboard } from "@/lib/leaderboard";
 
 export const metadata: Metadata = {
-  title: "ClickRank — Who's the most clickable person on Instagram?",
+  title: "ClickRank — ¿Quién es la persona más clickeable de Instagram?",
   description:
-    "Submit your Instagram profile and climb the leaderboard. Every click counts — more clicks, higher rank.",
+    "Envía tu perfil de Instagram y sube en la clasificación. Cada click cuenta: más clicks, más arriba.",
   openGraph: {
     title: "ClickRank",
     description:
-      "Who's the most clickable person on Instagram? Click a profile. Help them climb the leaderboard.",
+      "¿Quién es la persona más clickeable de Instagram? Haz click en un perfil y ayúdale a subir en la clasificación.",
   },
 };
 
 export const dynamic = "force-dynamic";
 
-export default async function HomePage() {
+interface HomePageProps {
+  searchParams: Promise<{ added?: string }>;
+}
+
+export default async function HomePage({ searchParams }: HomePageProps) {
+  // The submit flow redirects here with ?added=<username> after a successful
+  // insert, so the new profile owner gets a confirmation on arrival.
+  const { added } = await searchParams;
+
   // Fetch both periods server-side; the client toggle switches instantly.
   const [allTime, today] = await Promise.all([
     getLeaderboard("all"),
@@ -37,12 +45,25 @@ export default async function HomePage() {
           </span>
         </Link>
         <p className="mt-3 text-lg font-medium text-stone-700 dark:text-stone-300">
-          Who&rsquo;s the most clickable person on Instagram?
+          ¿Quién es la persona más clickeable de Instagram?
         </p>
         <p className="mt-1 text-sm text-stone-400">
-          Click a profile. Help them climb the leaderboard.
+          Haz click en un perfil. Ayúdale a subir en la clasificación.
         </p>
       </header>
+
+      {/* Just-added confirmation, shown after a successful submit */}
+      {added && (
+        <div className="flex justify-center">
+          <p
+            role="status"
+            className="animate-slide-up inline-flex items-center gap-2 rounded-full border border-emerald-200 bg-emerald-50/80 px-4 py-2 text-sm font-semibold text-emerald-800 dark:border-emerald-900 dark:bg-emerald-950/40 dark:text-emerald-300"
+          >
+            <span aria-hidden="true">🎉</span>
+            ¡@{added} ya está en la clasificación!
+          </p>
+        </div>
+      )}
 
       {/* Submit CTA */}
       <div className="flex justify-center">
@@ -51,20 +72,20 @@ export default async function HomePage() {
           className="group inline-flex items-center gap-2 rounded-full bg-stone-900 px-6 py-3 text-sm font-semibold text-white shadow-sm transition-all hover:bg-stone-700 hover:shadow-md active:scale-[0.98] dark:bg-white dark:text-stone-900 dark:hover:bg-stone-200"
         >
           <span aria-hidden="true">＋</span>
-          Submit your Instagram profile
+          Envía tu perfil de Instagram
         </Link>
       </div>
 
       {/* Leaderboard */}
-      <section aria-label="Leaderboard" className="mt-2">
+      <section aria-label="Clasificación" className="mt-2">
         <Leaderboard allTime={allTime} today={today} />
       </section>
 
       <footer className="pt-4 text-center text-xs text-stone-400">
         <p>
-          One valid click per profile, per visitor — rapid repeat clicks don&rsquo;t count.{" "}
+          Un click válido por perfil y por visitante: los clicks seguidos no cuentan.{" "}
           <Link href="/submit" className="underline underline-offset-2 hover:text-stone-600">
-            Add your profile
+            Añade tu perfil
           </Link>
           .
         </p>

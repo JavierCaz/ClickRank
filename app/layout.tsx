@@ -14,30 +14,30 @@ const geistMono = Geist_Mono({
 
 export const metadata: Metadata = {
   title: {
-    default: "ClickRank — Who's the most clickable person on Instagram?",
+    default: "ClickRank — ¿Quién es la persona más clickeable de Instagram?",
     template: "%s — ClickRank",
   },
   description:
-    "Submit your Instagram profile and climb the leaderboard. Every click counts — more clicks, higher rank.",
+    "Envía tu perfil de Instagram y sube en la clasificación. Cada click cuenta: más clicks, más arriba.",
   openGraph: {
     type: "website",
     title: "ClickRank",
     description:
-      "Who's the most clickable person on Instagram? Click a profile. Help them climb the leaderboard.",
+      "¿Quién es la persona más clickeable de Instagram? Haz click en un perfil y ayúdale a subir en la clasificación.",
     siteName: "ClickRank",
   },
   twitter: {
     card: "summary",
     title: "ClickRank",
     description:
-      "Who's the most clickable person on Instagram? Click a profile. Help them climb the leaderboard.",
+      "¿Quién es la persona más clickeable de Instagram? Haz click en un perfil y ayúdale a subir en la clasificación.",
   },
 };
 
 export default function RootLayout({ children }: LayoutProps<"/">) {
   return (
     <html
-      lang="en"
+      lang="es"
       className={`${geistSans.variable} ${geistMono.variable} h-full antialiased`}
     >
       <body className="min-h-full flex flex-col">{children}</body>

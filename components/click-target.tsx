@@ -108,7 +108,7 @@ export function ClickTarget({
 
   const commonProps = {
     className,
-    "aria-label": ariaLabel ?? `Click @${username} to help them climb`,
+    "aria-label": ariaLabel ?? `Haz click en @${username} para ayudarle a subir`,
     onClick: handleClick,
   };
 

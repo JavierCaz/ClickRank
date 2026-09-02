@@ -21,6 +21,9 @@ interface SubmitBody {
  * Server-side profile submission. Validates + normalizes the Instagram
  * username, rate-limits by hashed IP, rejects duplicates, and inserts the
  * profile with the service-role client. The client cannot write directly.
+ *
+ * Error strings are user-facing (rendered by the submit form) and kept in
+ * Spanish; the site UI is Spanish-only.
  */
 export async function POST(request: NextRequest) {
   const ipHash = hashIp(getClientIp(request.headers));
@@ -39,7 +42,7 @@ export async function POST(request: NextRequest) {
     console.error("[clickrank] rate-limit check failed:", countError.message);
   } else if ((count ?? 0) >= SUBMISSION_RATE_LIMIT) {
     return NextResponse.json(
-      { error: "Too many submissions. Try again later." },
+      { error: "Demasiados envíos. Inténtalo más tarde." },
       { status: 429 }
     );
   }
@@ -50,7 +53,7 @@ export async function POST(request: NextRequest) {
     body = (await request.json()) as SubmitBody;
   } catch {
     return NextResponse.json(
-      { error: "Invalid request body." },
+      { error: "Solicitud no válida." },
       { status: 400 }
     );
   }
@@ -85,7 +88,7 @@ export async function POST(request: NextRequest) {
     if (insertError.code === "23505") {
       return NextResponse.json(
         {
-          error: `@${username} is already on ClickRank.`,
+          error: `@${username} ya está en ClickRank.`,
           existing: true,
         },
         { status: 409 }
@@ -93,7 +96,7 @@ export async function POST(request: NextRequest) {
     }
     console.error("[clickrank] profile insert failed:", insertError.message);
     return NextResponse.json(
-      { error: "Something went wrong. Please try again." },
+      { error: "Algo salió mal. Inténtalo de nuevo." },
       { status: 500 }
     );
   }
