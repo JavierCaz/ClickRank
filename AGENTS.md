@@ -99,6 +99,14 @@ supabase/
   seed). Verify schema/RLS with `docker exec supabase_db_clickrank psql -U
   postgres -d postgres`.
 - Production: `supabase link --project-ref <ref>` then `supabase db push`.
+- Migrations that revoke privileges or create objects MUST explicitly GRANT
+  what `service_role` needs (function EXECUTE, table privileges, sequence
+  USAGE). Hosted Supabase does NOT default-grant to `service_role` the way
+  the local CLI stack does — omitting grants works locally and then fails in
+  prod with SQLSTATE 42501 ("permission denied"). See
+  `20260902120000_grant_execute_service_role.sql` and
+  `20260902130000_grant_table_access_service_role.sql`.
+- The service-role Secret key authenticates as the `service_role` role.
 - Env: copy `.env.example` → `.env.local`; values come from `supabase status`.
   `SUPABASE_SERVICE_ROLE_KEY` and `CLICKRANK_IP_HASH_SECRET` are server-only.
 
