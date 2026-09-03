@@ -12,6 +12,7 @@ export interface LeaderboardEntry {
   instagram_username: string;
   display_name: string | null;
   avatar_url: string | null;
+  avatar_emoji: string | null;
   clicks: number;
   rank: number;
 }
@@ -26,6 +27,7 @@ interface LeaderboardRow {
   instagram_username: string;
   display_name: string | null;
   avatar_url: string | null;
+  avatar_emoji: string | null;
   clicks: number | null;
   rank: number | null;
 }
@@ -48,6 +50,7 @@ export async function getLeaderboard(
     instagram_username: row.instagram_username,
     display_name: row.display_name,
     avatar_url: row.avatar_url,
+    avatar_emoji: row.avatar_emoji,
     clicks: Number(row.clicks ?? 0),
     rank: Number(row.rank),
   }));

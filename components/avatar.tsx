@@ -4,8 +4,9 @@ import { avatarDataUri } from "@/lib/avatar";
 
 interface AvatarProps {
   username: string;
-  displayName?: string | null;
   avatarUrl?: string | null;
+  /** Visitor-picked emoji; falls back to a deterministic one per username. */
+  avatarEmoji?: string | null;
   size?: number;
   className?: string;
   priority?: boolean;
@@ -13,17 +14,17 @@ interface AvatarProps {
 
 /**
  * Profile avatar. Uses the stored avatar_url when available (future-proof),
- * otherwise a deterministic generated gradient avatar — no external API calls.
+ * otherwise a deterministic generated gradient + emoji — no external API calls.
  */
 export function Avatar({
   username,
-  displayName,
   avatarUrl,
+  avatarEmoji,
   size = 44,
   className = "",
   priority = false,
 }: AvatarProps) {
-  const fallback = avatarDataUri(username, displayName ?? null, size * 2);
+  const fallback = avatarDataUri(username, avatarEmoji ?? null, size * 2);
 
   if (avatarUrl) {
     return (

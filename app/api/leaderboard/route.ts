@@ -28,7 +28,10 @@ export async function GET() {
       { headers: { "Cache-Control": "no-store" } }
     );
   } catch (error) {
-    console.error("[clickrank] failed to load leaderboard:", error);
+    console.error(
+      "[clickrank] failed to load leaderboard:",
+      error instanceof Error ? error.message : error
+    );
     return NextResponse.json(
       { error: "leaderboard_unavailable" },
       { status: 500, headers: { "Cache-Control": "no-store" } }

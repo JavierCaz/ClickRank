@@ -156,7 +156,7 @@ function Row({ entry, onCounted }: RowProps) {
 
       <Avatar
         username={entry.instagram_username}
-        displayName={entry.display_name}
+        avatarEmoji={entry.avatar_emoji}
         avatarUrl={entry.avatar_url}
         size={40}
       />

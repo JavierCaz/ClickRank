@@ -1,5 +1,3 @@
-
-
 /**
  * Deterministic placeholder avatars.
  *
@@ -7,9 +5,10 @@
  * profile image only if this can be done reliably without introducing an
  * external API dependency. Otherwise, use a generated avatar/placeholder."
  *
- * Instagram has no reliable public API for this and scraping is fragile, so
- * we generate a deterministic gradient SVG avatar from the username — stable
- * across renders, zero external calls, privacy-friendly.
+ * Instagram has no reliable public API for this and scraping is fragile, so we
+ * render a self-contained SVG avatar: a stable gradient picked from the
+ * username plus an emoji (the visitor's own pick, or a deterministic default
+ * derived from the username). Zero external calls, privacy-friendly.
  */
 
 const PALETTES: [string, string][] = [
@@ -21,6 +20,24 @@ const PALETTES: [string, string][] = [
   ["#6366f1", "#14b8a6"], // indigo -> teal
   ["#d946ef", "#8b5cf6"], // fuchsia -> violet
 ];
+
+/**
+ * Emojis offered by the avatar picker. Keep them to single code points (no
+ * ZWJ sequences / flags) so they render predictably inside an SVG <text>.
+ */
+export const AVATAR_EMOJIS = [
+  "😀", "😎", "🥳", "🦄", "🦊", "🐼",
+  "🐸", "🐙", "🦁", "🐯", "🦉", "🦋",
+  "🐢", "🐳", "🦩", "🌵", "🌸", "🍀",
+  "🌞", "🌈", "🔥", "🍕", "🎯", "🎮",
+  "🎸", "⚽", "🏀", "🎲", "👑", "🎩",
+  "🚀", "🛸", "💎", "⚡", "🍩", "🧁",
+] as const;
+
+/** True when `value` is one of the picker's emojis. */
+export function isAvatarEmoji(value: unknown): value is string {
+  return typeof value === "string" && (AVATAR_EMOJIS as readonly string[]).includes(value);
+}
 
 function hashString(value: string): number {
   let hash = 0;
@@ -35,21 +52,23 @@ export function gradientFor(username: string): [string, string] {
   return PALETTES[hashString(username) % PALETTES.length];
 }
 
-/** Stable initials for a username (up to 2 chars, uppercased). */
-export function initialsFor(username: string, displayName?: string | null): string {
-  const source = displayName?.trim() || username;
-  const parts = source.split(/[\s._-]+/).filter(Boolean);
-  if (parts.length === 0) return "?";
-  if (parts.length === 1) return parts[0].slice(0, 2).toUpperCase();
-  return (parts[0][0] + parts[1][0]).toUpperCase();
+/** Stable fallback emoji for profiles whose owner never picked one. */
+export function defaultEmojiFor(username: string): string {
+  return AVATAR_EMOJIS[hashString(username) % AVATAR_EMOJIS.length];
 }
 
 /**
- * Build a self-contained SVG data URI avatar. No network requests, no
- * external service. `size` is in pixels.
+ * Build a self-contained SVG data URI avatar: gradient background (stable per
+ * username) with an emoji centered on it. No network requests, no external
+ * service. `size` is in pixels.
  */
-export function avatarDataUri(username: string, displayName: string | null, size = 128): string {
+export function avatarDataUri(
+  username: string,
+  emoji?: string | null,
+  size = 128
+): string {
   const [from, to] = gradientFor(username);
+  const glyph = emoji?.trim() || defaultEmojiFor(username);
   const svg = `<svg xmlns="http://www.w3.org/2000/svg" width="${size}" height="${size}" viewBox="0 0 ${size} ${size}">
   <defs>
     <linearGradient id="g" x1="0" y1="0" x2="1" y2="1">
@@ -58,7 +77,7 @@ export function avatarDataUri(username: string, displayName: string | null, size
     </linearGradient>
   </defs>
   <rect width="${size}" height="${size}" fill="url(#g)"/>
-  <text x="50%" y="50%" dy="0.35em" text-anchor="middle" font-family="-apple-system, 'Segoe UI', Roboto, sans-serif" font-weight="700" font-size="${Math.round(size * 0.42)}" fill="rgba(255,255,255,0.95)">${initialsFor(username, displayName)}</text>
+  <text x="50%" y="50%" dy="0.35em" text-anchor="middle" font-size="${Math.round(size * 0.52)}">${glyph}</text>
 </svg>`;
 
   return `data:image/svg+xml;charset=utf-8,${encodeURIComponent(svg)}`;
