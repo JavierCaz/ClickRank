@@ -1,7 +1,7 @@
 "use client";
 
 import Link from "next/link";
-import { useEffect, useMemo, useRef, useState } from "react";
+import { useCallback, useEffect, useRef, useState } from "react";
 
 import { Avatar } from "@/components/avatar";
 import { ClickTarget, type ClickResult } from "@/components/click-target";
@@ -12,10 +12,17 @@ type Period = "all" | "today";
 
 const MEDALS = ["🥇", "🥈", "🥉"];
 
+/** Poll cadence (ms) for the server-computed ranking. */
+const POLL_INTERVAL_MS = 3000;
+
+const STALE_AFTER_FAILURES = 3;
+
 interface LeaderboardProps {
   allTime: LeaderboardEntry[];
   today: LeaderboardEntry[];
 }
+
+type Snapshots = Record<Period, LeaderboardEntry[]>;
 
 function formatClicks(n: number): string {
   return n.toLocaleString("en-US");
@@ -89,22 +96,37 @@ function CooldownNotice({ state }: { state: CooldownState }) {
   );
 }
 
-function Row({ entry }: { entry: LeaderboardEntry }) {
-  const [count, setCount] = useState(entry.clicks);
+interface RowProps {
+  entry: LeaderboardEntry;
+  /** Fired when a click of ours was counted by the DB (never on duplicates). */
+  onCounted: () => void;
+}
+
+/**
+ * One leaderboard row. The displayed count, rank and ordering come entirely
+ * from the parent's server-fetched snapshot — the row holds no private copy of
+ * the count — so live polls (including other visitors' clicks) reconcile
+ * cleanly. Only transient UI (the +1 flash, the cooldown pill) is local.
+ */
+function Row({ entry, onCounted }: RowProps) {
   const [flash, setFlash] = useState(false);
   const [cooldown, setCooldown] = useState<CooldownState | null>(null);
   const flashTimer = useRef<ReturnType<typeof setTimeout> | null>(null);
 
-  // Called with the server verdict after each click attempt. The count only
-  // moves when the DB actually recorded the click (no optimistic inflation on
-  // duplicate clicks), and the cooldown state comes straight from the DB
-  // window so the UI always matches the live `click_config` value.
+  // Called with the server verdict after each click attempt. The displayed
+  // count only moves when a fresh server snapshot includes the click (no
+  // optimistic inflation on duplicates), and the cooldown state comes straight
+  // from the DB window so the UI always matches the live `click_config` value.
   const handleResult = (result: ClickResult) => {
     if (!result.duplicate) {
-      setCount((c) => c + 1);
       setFlash(true);
       if (flashTimer.current) clearTimeout(flashTimer.current);
       flashTimer.current = setTimeout(() => setFlash(false), 950);
+
+      // Our click is now committed in the DB, so pull a fresh ranking right
+      // away: this row moves to its correct position (and everyone else's
+      // counts catch up) without waiting for the next scheduled poll.
+      onCounted();
     }
 
     if (result.cooldownMs > 0 && result.cooldownRemainingMs > 0) {
@@ -134,7 +156,7 @@ function Row({ entry }: { entry: LeaderboardEntry }) {
 
       <Avatar
         username={entry.instagram_username}
-        displayName={entry.display_name}
+        avatarEmoji={entry.avatar_emoji}
         avatarUrl={entry.avatar_url}
         size={40}
       />
@@ -182,7 +204,7 @@ function Row({ entry }: { entry: LeaderboardEntry }) {
             isTop3 ? "text-amber-600 dark:text-amber-400" : "text-stone-800 dark:text-stone-200"
           }`}
         >
-          {formatClicks(count)}
+          {formatClicks(entry.clicks)}
         </p>
         <p className="text-[11px] uppercase tracking-wide text-stone-400">
           clicks
@@ -204,18 +226,92 @@ function Row({ entry }: { entry: LeaderboardEntry }) {
   );
 }
 
+/**
+ * Live leaderboard. The initial snapshots arrive as server-rendered props; from
+ * then on this component polls GET /api/leaderboard so the ranking stays fresh:
+ * new clicks (ours and other visitors'), new profiles and position changes all
+ * appear without a page refresh. Ordering, ranks and counts are always the
+ * server's — the client never recomputes them.
+ */
 export function Leaderboard({ allTime, today }: LeaderboardProps) {
   const [period, setPeriod] = useState<Period>("all");
+  const [snapshots, setSnapshots] = useState<Snapshots>({ all: allTime, today });
+  const [live, setLive] = useState(true);
 
-  const entries = useMemo(
-    () => (period === "all" ? allTime : today),
-    [period, allTime, today]
-  );
+  // `seq` ids the newest request so stale responses are dropped; `inFlight`
+  // stops scheduled polls stacking up; `failures` counts consecutive misses.
+  const seq = useRef(0);
+  const inFlight = useRef(false);
+  const failures = useRef(0);
+
+  const refresh = useCallback(async (force = false) => {
+    // Skip a scheduled poll while a previous request is still running, unless
+    // this is a forced refresh (e.g. right after one of our clicks counted).
+    if (!force && inFlight.current) return;
+    inFlight.current = true;
+    const requestId = ++seq.current;
+
+    try {
+      const res = await fetch("/api/leaderboard", { cache: "no-store" });
+      if (!res.ok) throw new Error(`leaderboard poll failed: HTTP ${res.status}`);
+      const data = (await res.json()) as Record<Period, unknown>;
+      if (!Array.isArray(data.all) || !Array.isArray(data.today)) {
+        throw new Error("leaderboard poll returned an unexpected shape");
+      }
+      const next: Snapshots = {
+        all: data.all as LeaderboardEntry[],
+        today: data.today as LeaderboardEntry[],
+      };
+
+      // Drop responses from requests superseded by a newer one (e.g. a forced
+      // refresh overtaking a scheduled poll) so stale data never regresses.
+      if (requestId === seq.current) {
+        setSnapshots(next);
+        failures.current = 0;
+        setLive(true);
+      }
+    } catch (error) {
+      failures.current += 1;
+      if (failures.current >= STALE_AFTER_FAILURES) setLive(false);
+      // Log the first failure, then every 10th, so transient blips stay quiet.
+      if (failures.current === 1 || failures.current % 10 === 0) {
+        console.error("[clickrank] failed to refresh leaderboard:", error);
+      }
+    } finally {
+      if (requestId === seq.current) inFlight.current = false;
+    }
+  }, []);
+
+  // Poll on a fixed cadence (the interval callback checks the in-flight flag).
+  useEffect(() => {
+    const id = window.setInterval(() => {
+      void refresh(false);
+    }, POLL_INTERVAL_MS);
+    return () => window.clearInterval(id);
+  }, [refresh]);
+
+  // Refresh immediately when the visitor returns to the tab, so the ranking is
+  // current the moment it becomes visible again.
+  useEffect(() => {
+    const onVisible = () => {
+      if (!document.hidden) void refresh(true);
+    };
+    document.addEventListener("visibilitychange", onVisible);
+    return () => document.removeEventListener("visibilitychange", onVisible);
+  }, [refresh]);
+
+  // After a click of ours is counted, fetch right away instead of waiting for
+  // the next poll, so the row visibly moves to its correct position.
+  const onCounted = useCallback(() => {
+    void refresh(true);
+  }, [refresh]);
+
+  const entries = snapshots[period];
 
   return (
     <div className="w-full">
-      {/* Period toggle */}
-      <div className="mb-4 flex items-center justify-center">
+      {/* Period toggle + live indicator */}
+      <div className="relative mb-4 flex items-center justify-center">
         <div
           role="tablist"
           aria-label="Período de la clasificación"
@@ -243,6 +339,30 @@ export function Leaderboard({ allTime, today }: LeaderboardProps) {
             </button>
           ))}
         </div>
+
+        <span
+          role="status"
+          title={
+            live
+              ? "La clasificación se actualiza sola"
+              : "Sin conexión: la clasificación no se está actualizando"
+          }
+          className={`absolute right-0 top-1/2 inline-flex -translate-y-1/2 items-center gap-1.5 rounded-full border px-2 py-0.5 text-[11px] font-semibold ${
+            live
+              ? "border-emerald-200 bg-emerald-50/80 text-emerald-700 dark:border-emerald-500/30 dark:bg-emerald-950/40 dark:text-emerald-300"
+              : "border-stone-200 bg-stone-50 text-stone-400 dark:border-stone-800 dark:bg-stone-900 dark:text-stone-500"
+          }`}
+        >
+          <span
+            aria-hidden="true"
+            className={`h-1.5 w-1.5 rounded-full ${
+              live
+                ? "animate-pulse bg-emerald-500"
+                : "bg-stone-300 dark:bg-stone-600"
+            }`}
+          />
+          En vivo
+        </span>
       </div>
 
       {/* Rows */}
@@ -259,7 +379,7 @@ export function Leaderboard({ allTime, today }: LeaderboardProps) {
         <ol className="flex flex-col gap-2">
           {entries.map((entry) => (
             <li key={entry.id} className="animate-slide-up">
-              <Row entry={entry} />
+              <Row entry={entry} onCounted={onCounted} />
             </li>
           ))}
         </ol>

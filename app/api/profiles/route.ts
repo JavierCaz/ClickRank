@@ -1,5 +1,6 @@
 import { NextRequest, NextResponse } from "next/server";
 
+import { isAvatarEmoji } from "@/lib/avatar";
 import { getClientIp, hashIp } from "@/lib/security";
 import { getSupabaseAdmin } from "@/lib/supabase";
 import { normalizeInstagramUsername } from "@/lib/username";
@@ -13,6 +14,7 @@ const SUBMISSION_WINDOW_HOURS = 1;
 interface SubmitBody {
   username?: unknown;
   displayName?: unknown;
+  avatarEmoji?: unknown;
 }
 
 /**
@@ -72,6 +74,15 @@ export async function POST(request: NextRequest) {
       ? body.displayName.trim().slice(0, 60)
       : null;
 
+  // Avatar emoji is optional but must come from the picker whitelist.
+  let avatarEmoji: string | null = null;
+  if (body.avatarEmoji !== undefined && body.avatarEmoji !== "") {
+    if (!isAvatarEmoji(body.avatarEmoji)) {
+      return NextResponse.json({ error: "Emoji de avatar no válido." }, { status: 400 });
+    }
+    avatarEmoji = body.avatarEmoji;
+  }
+
   // --- Record the submission event for rate limiting (post-validation) ------
   await admin.from("submission_events").insert({ ip_hash: ipHash });
 
@@ -80,8 +91,8 @@ export async function POST(request: NextRequest) {
   // arrive concurrently, only one insert wins; the other hits 23505.
   const { data: profile, error: insertError } = await admin
     .from("profiles")
-    .insert({ instagram_username: username, display_name: displayName })
-    .select("id, instagram_username, display_name, avatar_url, created_at")
+    .insert({ instagram_username: username, display_name: displayName, avatar_emoji: avatarEmoji })
+    .select("id, instagram_username, display_name, avatar_emoji, created_at")
     .maybeSingle();
 
   if (insertError) {

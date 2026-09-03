@@ -5,13 +5,13 @@
 -- Production databases should not run this (only `supabase db reset` applies
 -- seed.sql, which is a local-development command).
 
-insert into public.profiles (instagram_username, display_name)
+insert into public.profiles (instagram_username, display_name, avatar_emoji)
 values
-  ('maria', 'Maria'),
-  ('juan', null),
-  ('pedro', 'Pedro'),
-  ('ana', 'Ana'),
-  ('carlos', 'Carlos');
+  ('maria', 'Maria', '🦄'),
+  ('juan', null, null),
+  ('pedro', 'Pedro', '🚀'),
+  ('ana', 'Ana', '🌸'),
+  ('carlos', 'Carlos', '🐼');
 
 -- Synthetic clicks from "different" anonymous visitors so ranks populate.
 -- visitor_id values are fixed UUIDs (dev-only, no real PII).

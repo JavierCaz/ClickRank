@@ -3,6 +3,8 @@
 import { useRouter } from "next/navigation";
 import { useCallback, useState } from "react";
 
+import { AVATAR_EMOJIS } from "@/lib/avatar";
+
 interface SubmitState {
   status: "idle" | "submitting" | "error";
   message?: string;
@@ -19,6 +21,7 @@ interface SubmitState {
 export function SubmitForm() {
   const router = useRouter();
   const [state, setState] = useState<SubmitState>({ status: "idle" });
+  const [avatarEmoji, setAvatarEmoji] = useState<string | null>(null);
 
   const handleSubmit = useCallback(
     async (e: React.FormEvent<HTMLFormElement>) => {
@@ -33,7 +36,7 @@ export function SubmitForm() {
         const res = await fetch("/api/profiles", {
           method: "POST",
           headers: { "Content-Type": "application/json" },
-          body: JSON.stringify({ username, displayName }),
+          body: JSON.stringify({ username, displayName, avatarEmoji: avatarEmoji ?? undefined }),
         });
 
         const body = await res.json().catch(() => ({}));
@@ -51,7 +54,7 @@ export function SubmitForm() {
         setState({ status: "error", message: "Error de red. Inténtalo de nuevo." });
       }
     },
-    [router]
+    [router, avatarEmoji]
   );
 
   return (
@@ -85,6 +88,38 @@ export function SubmitForm() {
           className="w-full rounded-xl border border-stone-300 bg-white px-4 py-3 text-base outline-none transition-colors placeholder:text-stone-400 focus:border-stone-500 dark:border-stone-700 dark:bg-stone-950 dark:placeholder:text-stone-600"
         />
       </label>
+
+      <fieldset className="flex flex-col gap-1.5">
+        <legend className="text-sm font-semibold">
+          Avatar <span className="font-normal text-stone-400">(opcional)</span>
+        </legend>
+        <div className="flex flex-wrap gap-1">
+          {AVATAR_EMOJIS.map((emoji) => {
+            const selected = avatarEmoji === emoji;
+            return (
+              <button
+                key={emoji}
+                type="button"
+                aria-pressed={selected}
+                aria-label={`Usar ${emoji} como avatar`}
+                onClick={() => setAvatarEmoji(selected ? null : emoji)}
+                className={`flex h-9 w-9 items-center justify-center rounded-full text-xl leading-none transition-all ${
+                  selected
+                    ? "scale-110 bg-stone-900/5 ring-2 ring-stone-900 dark:bg-white/10 dark:ring-white"
+                    : "hover:bg-stone-100 dark:hover:bg-white/10"
+                }`}
+              >
+                {emoji}
+              </button>
+            );
+          })}
+        </div>
+        <p className="text-xs text-stone-400">
+          {avatarEmoji
+            ? `Avatar elegido: ${avatarEmoji}`
+            : "Sin elegir, asignaremos uno automáticamente según tu nombre de usuario."}
+        </p>
+      </fieldset>
 
       {state.status === "error" && (
         <p
