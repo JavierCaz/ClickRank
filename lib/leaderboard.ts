@@ -17,8 +17,6 @@ export interface LeaderboardEntry {
   rank: number;
 }
 
-export type LeaderboardPeriod = "today" | "all";
-
 export const LEADERBOARD_LIMIT = 100;
 
 /** Raw row shape returned by the get_leaderboard RPC. */
@@ -32,13 +30,12 @@ interface LeaderboardRow {
   rank: number | null;
 }
 
-/** Leaderboard rows for a given period, ranked by the database. */
+/** All-time leaderboard rows, ranked by the database. */
 export async function getLeaderboard(
-  period: LeaderboardPeriod,
   limit: number = LEADERBOARD_LIMIT
 ): Promise<LeaderboardEntry[]> {
   const { data, error } = await getSupabaseAdmin().rpc("get_leaderboard", {
-    p_period: period,
+    p_period: "all",
     p_limit: limit,
   });
 

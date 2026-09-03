@@ -37,7 +37,7 @@ Visitor is redirected to Instagram
 
 ```
 app/
-  page.tsx                    Landing: hero + leaderboard (Today / All Time)
+  page.tsx                    Landing: hero + live leaderboard (all time)
   submit/page.tsx             Profile submission page
   go/[username]/route.ts      GET: records a click, 302 → Instagram
   api/profiles/route.ts       POST: validate + insert a profile (rate limited)
@@ -45,7 +45,7 @@ app/
   loading.tsx / error.tsx / not-found.tsx
 components/
   click-target.tsx            "+1" click flow (POST or /go redirect)
-  leaderboard.tsx             Client leaderboard with period toggle + rows
+  leaderboard.tsx             Client leaderboard with En Vivo badge + rows
   avatar.tsx / submit-form.tsx
 lib/
   supabase.ts                 Server-only service-role client (the ONLY db client)
