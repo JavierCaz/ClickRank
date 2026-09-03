@@ -26,11 +26,9 @@ export default async function HomePage({ searchParams }: HomePageProps) {
   // insert, so the new profile owner gets a confirmation on arrival.
   const { added } = await searchParams;
 
-  // Fetch both periods server-side; the client toggle switches instantly.
-  const [allTime, today] = await Promise.all([
-    getLeaderboard("all"),
-    getLeaderboard("today"),
-  ]);
+  // Fetch the all-time ranking server-side; the client leaderboard keeps it
+  // live from there on via /api/leaderboard polling.
+  const entries = await getLeaderboard();
 
   return (
     <main className="mx-auto flex w-full max-w-xl flex-1 flex-col gap-8 px-4 pb-16 pt-10 sm:pt-14">
@@ -78,7 +76,7 @@ export default async function HomePage({ searchParams }: HomePageProps) {
 
       {/* Leaderboard */}
       <section aria-label="Clasificación" className="mt-2">
-        <Leaderboard allTime={allTime} today={today} />
+        <Leaderboard entries={entries} />
       </section>
 
       <footer className="pt-4 text-center text-xs text-stone-400">

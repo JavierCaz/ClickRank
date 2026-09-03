@@ -8,8 +8,6 @@ import { ClickTarget, type ClickResult } from "@/components/click-target";
 import type { LeaderboardEntry } from "@/lib/leaderboard";
 import { instagramProfileUrl } from "@/lib/username";
 
-type Period = "all" | "today";
-
 const MEDALS = ["🥇", "🥈", "🥉"];
 
 /** Poll cadence (ms) for the server-computed ranking. */
@@ -18,11 +16,9 @@ const POLL_INTERVAL_MS = 3000;
 const STALE_AFTER_FAILURES = 3;
 
 interface LeaderboardProps {
-  allTime: LeaderboardEntry[];
-  today: LeaderboardEntry[];
+  /** Server-rendered all-time snapshot; live polls replace it afterwards. */
+  entries: LeaderboardEntry[];
 }
-
-type Snapshots = Record<Period, LeaderboardEntry[]>;
 
 function formatClicks(n: number): string {
   return n.toLocaleString("en-US");
@@ -227,15 +223,14 @@ function Row({ entry, onCounted }: RowProps) {
 }
 
 /**
- * Live leaderboard. The initial snapshots arrive as server-rendered props; from
- * then on this component polls GET /api/leaderboard so the ranking stays fresh:
- * new clicks (ours and other visitors'), new profiles and position changes all
- * appear without a page refresh. Ordering, ranks and counts are always the
- * server's — the client never recomputes them.
+ * Live leaderboard. The initial ranking arrives as a server-rendered prop;
+ * from then on this component polls GET /api/leaderboard so the ranking stays
+ * fresh: new clicks (ours and other visitors'), new profiles and position
+ * changes all appear without a page refresh. Ordering, ranks and counts are
+ * always the server's — the client never recomputes them.
  */
-export function Leaderboard({ allTime, today }: LeaderboardProps) {
-  const [period, setPeriod] = useState<Period>("all");
-  const [snapshots, setSnapshots] = useState<Snapshots>({ all: allTime, today });
+export function Leaderboard({ entries: initialEntries }: LeaderboardProps) {
+  const [entries, setEntries] = useState<LeaderboardEntry[]>(initialEntries);
   const [live, setLive] = useState(true);
 
   // `seq` ids the newest request so stale responses are dropped; `inFlight`
@@ -254,19 +249,16 @@ export function Leaderboard({ allTime, today }: LeaderboardProps) {
     try {
       const res = await fetch("/api/leaderboard", { cache: "no-store" });
       if (!res.ok) throw new Error(`leaderboard poll failed: HTTP ${res.status}`);
-      const data = (await res.json()) as Record<Period, unknown>;
-      if (!Array.isArray(data.all) || !Array.isArray(data.today)) {
+      const data = (await res.json()) as unknown;
+      if (!Array.isArray(data)) {
         throw new Error("leaderboard poll returned an unexpected shape");
       }
-      const next: Snapshots = {
-        all: data.all as LeaderboardEntry[],
-        today: data.today as LeaderboardEntry[],
-      };
+      const next = data as LeaderboardEntry[];
 
       // Drop responses from requests superseded by a newer one (e.g. a forced
       // refresh overtaking a scheduled poll) so stale data never regresses.
       if (requestId === seq.current) {
-        setSnapshots(next);
+        setEntries(next);
         failures.current = 0;
         setLive(true);
       }
@@ -306,61 +298,33 @@ export function Leaderboard({ allTime, today }: LeaderboardProps) {
     void refresh(true);
   }, [refresh]);
 
-  const entries = snapshots[period];
-
   return (
     <div className="w-full">
-      {/* Period toggle + live indicator */}
-      <div className="relative mb-4 flex items-center justify-center">
-        <div
-          role="tablist"
-          aria-label="Período de la clasificación"
-          className="inline-flex rounded-full border border-stone-200 bg-white p-1 dark:border-stone-800 dark:bg-stone-900"
-        >
-          {(
-            [
-              ["all", "Todo"],
-              ["today", "Hoy"],
-            ] as [Period, string][]
-          ).map(([key, label]) => (
-            <button
-              key={key}
-              type="button"
-              role="tab"
-              aria-selected={period === key}
-              onClick={() => setPeriod(key)}
-              className={`rounded-full px-4 py-1.5 text-sm font-medium transition-colors ${
-                period === key
-                  ? "bg-stone-900 text-white dark:bg-white dark:text-stone-900"
-                  : "text-stone-500 hover:text-stone-800 dark:text-stone-400 dark:hover:text-stone-200"
-              }`}
-            >
-              {label}
-            </button>
-          ))}
-        </div>
-
+      {/* Live badge (replaces the old Todo/Hoy period switch) */}
+      <div className="mb-4 flex items-center justify-center">
         <span
           role="status"
           title={
             live
-              ? "La clasificación se actualiza sola"
+              ? "La clasificación se actualiza en vivo"
               : "Sin conexión: la clasificación no se está actualizando"
           }
-          className={`absolute right-0 top-1/2 inline-flex -translate-y-1/2 items-center gap-1.5 rounded-full border px-2 py-0.5 text-[11px] font-semibold ${
+          className={`inline-flex items-center gap-2 rounded-full border px-4 py-1.5 text-xs font-bold uppercase tracking-[0.18em] transition-colors ${
             live
               ? "border-emerald-200 bg-emerald-50/80 text-emerald-700 dark:border-emerald-500/30 dark:bg-emerald-950/40 dark:text-emerald-300"
-              : "border-stone-200 bg-stone-50 text-stone-400 dark:border-stone-800 dark:bg-stone-900 dark:text-stone-500"
+              : "border-stone-200 bg-stone-100 text-stone-400 dark:border-stone-800 dark:bg-stone-900 dark:text-stone-500"
           }`}
         >
-          <span
-            aria-hidden="true"
-            className={`h-1.5 w-1.5 rounded-full ${
-              live
-                ? "animate-pulse bg-emerald-500"
-                : "bg-stone-300 dark:bg-stone-600"
-            }`}
-          />
+          <span aria-hidden="true" className="relative flex h-2 w-2">
+            {live ? (
+              <span className="absolute inline-flex h-full w-full animate-ping rounded-full bg-emerald-400 opacity-75" />
+            ) : null}
+            <span
+              className={`relative inline-flex h-2 w-2 rounded-full ${
+                live ? "bg-emerald-500" : "bg-stone-300 dark:bg-stone-600"
+              }`}
+            />
+          </span>
           En vivo
         </span>
       </div>
@@ -369,7 +333,7 @@ export function Leaderboard({ allTime, today }: LeaderboardProps) {
       {entries.length === 0 ? (
         <div className="rounded-2xl border border-dashed border-stone-300 bg-white px-6 py-12 text-center dark:border-stone-800 dark:bg-stone-950">
           <p className="text-lg font-semibold text-stone-700 dark:text-stone-300">
-            {period === "today" ? "Aún no hay clicks hoy" : "Aún no hay clicks"}
+            Aún no hay clicks
           </p>
           <p className="mt-1 text-sm text-stone-400">
             Sé el primero en enviar un perfil y empieza a hacer clicks.
