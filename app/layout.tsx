@@ -20,7 +20,7 @@ export const metadata: Metadata = {
     template: "%s — ClickRank",
   },
   description:
-    "Envía tu perfil de Instagram y sube en la clasificación. Cada click cuenta: más clicks, más arriba.",
+    "Agrega tu perfil de Instagram y sube en la clasificación. Cada click cuenta: más clicks, más arriba.",
   openGraph: {
     type: "website",
     title: "ClickRank",

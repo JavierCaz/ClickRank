@@ -4,7 +4,7 @@ import Link from "next/link";
 import { SubmitForm } from "@/components/submit-form";
 
 export const metadata: Metadata = {
-  title: "Envía tu perfil",
+  title: "Agrega tu perfil",
   description:
     "Añade tu perfil de Instagram a la clasificación de ClickRank y empieza a subir.",
 };
@@ -23,7 +23,7 @@ export default function SubmitPage() {
           Entra en la clasificación
         </h1>
         <p className="mt-2 text-sm text-stone-500 dark:text-stone-400">
-          Envía tu perfil de Instagram. Cada click de un visitante te hace subir
+          Agrega tu perfil de Instagram. Cada click de un visitante te hace subir
           en la clasificación.
         </p>
       </header>
