@@ -7,7 +7,7 @@ import { getLeaderboard } from "@/lib/leaderboard";
 export const metadata: Metadata = {
   title: "ClickRank — ¿Quién es la persona más clickeable de Instagram?",
   description:
-    "Envía tu perfil de Instagram y sube en la clasificación. Cada click cuenta: más clicks, más arriba.",
+    "Agrega tu perfil de Instagram y sube en la clasificación. Cada click cuenta: más clicks, más arriba.",
   openGraph: {
     title: "ClickRank",
     description:
@@ -70,7 +70,7 @@ export default async function HomePage({ searchParams }: HomePageProps) {
           className="group inline-flex items-center gap-2 rounded-full bg-stone-900 px-6 py-3 text-sm font-semibold text-white shadow-sm transition-all hover:bg-stone-700 hover:shadow-md active:scale-[0.98] dark:bg-white dark:text-stone-900 dark:hover:bg-stone-200"
         >
           <span aria-hidden="true">＋</span>
-          Envía tu perfil de Instagram
+          Agrega tu perfil de Instagram
         </Link>
       </div>
 
